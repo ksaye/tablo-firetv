@@ -28,6 +28,8 @@ public sealed class TabloSession(ILogger<TabloSession> log)
     /// <summary>Nobody has signed in and there is nothing saved, so there is no DVR to talk to yet.</summary>
     public bool NeedsCredentials => _credentials is null;
     public string? AccountEmail => _credentials?.Email;
+    /// <summary>The Tablo sign-in in use, for signing in to a tablo-web server with the same account.</summary>
+    public Credentials? CurrentCredentials => _credentials;
 
     private readonly Cache<List<GuideChannelWrap>> _channels = new(TimeSpan.FromHours(6));
     // The free streaming channels and their listings come from the cloud, not the device, so

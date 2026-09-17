@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.1.0 — unreleased
+
+- **Multi-view through tablo-web.** The app broadcasts tablo-web's discovery query (UDP 8788) every
+  minute; a server that answers, is connected to the same Tablo and offers multi-view is signed in
+  to with the same Tablo account, and a Multi-view tab appears. The in-app server passes the page's
+  multi-view calls through to it, and the combined stream plays in the native player straight from
+  the server: ← → move the sound (an audio-track change, plus a note to the server to move its
+  border), Back stops. No server, no tab.
+- **Start multi-view is a full-width button above the channels**, not a corner one. On a D-pad,
+  Up from a channel is aligned with the tabs and went straight past a corner button to them; now
+  one press of Up from any channel lands on Start.
+- Tested end to end on a Fire TV Stick against tablo-web 1.2.0 on Windows: the tab appears within a
+  minute of the server coming up, two antenna channels play as one picture, → and ← move the sound
+  (the server's yellow border follows once the player's buffer catches up), and Back stops the
+  multi-view and frees the DVR's tuners. Ran 15 minutes without a stumble.
+
 ## 1.0.0 — 2026-09-17
 
 First public release.

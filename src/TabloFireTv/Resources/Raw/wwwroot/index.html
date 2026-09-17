@@ -18,6 +18,7 @@
 
   <nav class="tabs" role="tablist">
     <button class="tab" role="tab" data-view="live">Live TV</button>
+    <button class="tab" role="tab" data-view="multiview" id="multiviewTab" hidden>Multi-view</button>
     <button class="tab" role="tab" data-view="recordings">Recordings</button>
     <button class="tab" role="tab" data-view="guide">Guide</button>
   </nav>
@@ -55,12 +56,13 @@
   <section class="view" id="view-multiview" hidden>
     <div class="viewhead">
       <h1>Multi-view <span class="count" id="mvCount"></span></h1>
-      <div class="viewtools">
-        <button id="mvStart" class="ghost" disabled>Start multi-view</button>
-      </div>
     </div>
     <p class="mv-hint">Pick 2–4 live channels. Every pane uses a tuner, so nothing can record
       while multi-view is running.</p>
+    <!-- Full width, and directly above the grid, so Up from any channel reaches it. A button off
+         in the corner is aligned with nothing, and D-pad Up from a channel went past it to the
+         tabs instead. -->
+    <button id="mvStart" class="ghost mv-start" disabled>Start multi-view</button>
     <div class="cards" id="mvList"></div>
   </section>
 
@@ -169,5 +171,20 @@
 <script src="vendor/hls.min.js"></script>
 <script src="app.js"></script>
 <script src="nav.js"></script>
+<script>
+  // Multi-view needs a tablo-web server on the network (the app looks for one); show the tab
+  // only while one is available.
+  (function () {
+    async function check() {
+      try {
+        const res = await fetch('/api/me');
+        const me = await res.json();
+        document.getElementById('multiviewTab').hidden = !me.multiView;
+      } catch { /* keep whatever is shown */ }
+    }
+    check();
+    setInterval(check, 30000);
+  })();
+</script>
 </body>
 </html>
