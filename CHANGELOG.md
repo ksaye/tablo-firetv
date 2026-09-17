@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.1.0 — unreleased
+
+- **Multi-view through tablo-web.** The app broadcasts tablo-web's discovery query (UDP 8788) every
+  minute; a server that answers, is connected to the same Tablo and offers multi-view is signed in
+  to with the same Tablo account, and a Multi-view tab appears. The in-app server passes the page's
+  multi-view calls through to it, and the combined stream plays in the native player straight from
+  the server: ← → move the sound (an audio-track change, plus a note to the server to move its
+  border), Back stops. No server, no tab.
+- Built and the discovery/sign-in/pass-through logic tested against tablo-web; **not yet tried on a
+  Fire TV.**
+
 ## 1.0.0 — 2026-09-17
 
 First public release.

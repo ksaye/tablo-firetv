@@ -99,6 +99,23 @@ public class MainActivity : MauiAppCompatActivity
         var origFetch = window.fetch;
         window.fetch = function(input, init){
             var url = typeof input === 'string' ? input : (input && input.url) || '';
+            var isMosaic = init && init.method === 'POST' && /\/api\/mosaic$/.test(url);
+            if (isMosaic) {
+                return origFetch.apply(this, arguments).then(function(res){
+                    return res.clone().json().then(function(body){
+                        if (body.url && body.id && window.AndroidTV) {
+                            window.__tvNativeTakeover = true;
+                            window.AndroidTV.playMosaic(body.url, body.id, JSON.stringify(body.channels || []));
+                            // The native player owns the sound; stop the page's own auto-cycle,
+                            // which app.js starts right after this resolves.
+                            [0, 500, 1500].forEach(function(ms){
+                                setTimeout(function(){ if (typeof stopRotate === 'function') stopRotate(); }, ms);
+                            });
+                        }
+                        return res;
+                    }).catch(function(){ return res; });
+                });
+            }
             if (!(init && init.method === 'POST' && url.indexOf('/api/play') !== -1)) {
                 return origFetch.apply(this, arguments);
             }
@@ -156,6 +173,12 @@ public class MainActivity : MauiAppCompatActivity
     private int _tuneGeneration;
     private List<NowDto>? _lineup;
     private DateTime _lineupFetchedUtc;
+
+    // Multi-view (a tablo-web server's combined stream): its session id, the panes' names, and
+    // which pane has the sound. Null id when not in multi-view.
+    private string? _mosaicId;
+    private List<string> _mosaicLabels = [];
+    private int _mosaicPane;
 
     private IExoPlayer? _player;
     private PlayerView? _playerView;
@@ -297,7 +320,8 @@ public class MainActivity : MauiAppCompatActivity
     /// <summary>Called (via the bridge) when app.js starts playing something: takes over the
     /// screen with ExoPlayer. PlayerView's fit mode scales the picture to the screen while keeping
     /// its aspect ratio.</summary>
-    private void ShowNativePlayer(string url, string title, string subtitle, double positionSeconds, bool live, string path)
+    private void ShowNativePlayer(string url, string title, string subtitle, double positionSeconds, bool live, string path,
+        string? cookieOverride = null)
     {
         CloseNativePlayer();
         _nativeLive = live;
@@ -308,7 +332,7 @@ public class MainActivity : MauiAppCompatActivity
         // ExoPlayer's HTTP stack is separate from the WebView's cookies, so it is handed the in-app
         // server's cookie explicitly: a recording's playlist comes from that server. The video
         // segments come from the Tablo itself, which needs its User-Agent and ignores the cookie.
-        var cookie = CookieManager.Instance?.GetCookie(HomeUrl);
+        var cookie = cookieOverride ?? CookieManager.Instance?.GetCookie(HomeUrl);
         var http = new DefaultHttpDataSource.Factory().SetUserAgent(TabloUserAgent)!;
         if (!string.IsNullOrEmpty(cookie))
             http.SetDefaultRequestProperties(new Dictionary<string, string> { ["Cookie"] = cookie });
@@ -342,6 +366,87 @@ public class MainActivity : MauiAppCompatActivity
         SetNativeTitleVisible(false);
         player.Play();
         _overlayHandler.Post(NativeOverlayTick);
+    }
+
+    /// <summary>
+    /// Play a multi-view started through the page. The stream comes straight from the tablo-web
+    /// server (with its sign-in cookie); every pane's audio is a separate audio track in it, so moving
+    /// the sound is a track change here plus a note to the server to move its yellow border.
+    /// </summary>
+    private void ShowMosaicPlayer(string relativeUrl, string id, string channelsJson)
+    {
+        if (Server.MultiView.BaseUrl is not { } server)
+        {
+            Toast.MakeText(this, "The multi-view server is no longer available.", ToastLength.Long)!.Show();
+            ClosePagePlayer();
+            return;
+        }
+
+        var labels = new List<string>();
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(channelsJson);
+            foreach (var c in doc.RootElement.EnumerateArray())
+            {
+                var number = c.TryGetProperty("number", out var n) ? n.GetString() : "";
+                var call = c.TryGetProperty("callSign", out var cs) ? cs.GetString() : "";
+                labels.Add($"{number} {call}".Trim());
+            }
+        }
+        catch { /* labels are only for the on-screen note */ }
+
+        ShowNativePlayer(new Uri(server, relativeUrl).AbsoluteUri, "Multi-view", string.Join(" · ", labels),
+            0, live: true, path: "", cookieOverride: Server.MultiView.CookieHeader);
+        _mosaicId = id;
+        _mosaicLabels = labels;
+        _mosaicPane = 0;
+        ShowMosaicBanner();
+    }
+
+    /// <summary>← / →: move the sound to the previous / next pane.</summary>
+    private void StepMosaicPane(int delta)
+    {
+        var count = Math.Max(_mosaicLabels.Count, 1);
+        _mosaicPane = ((_mosaicPane + delta) % count + count) % count;
+        ApplyMosaicAudio();
+        ShowMosaicBanner();
+
+        var id = _mosaicId;
+        var pane = _mosaicPane;
+        if (id is not null)
+            _ = Task.Run(() => Server.MultiView.ForwardAsync("POST", $"/api/mosaic/{id}/audio",
+                System.Text.Encoding.UTF8.GetBytes($"{{\"pane\":{pane}}}")));
+    }
+
+    /// <summary>Select the audio track for the current pane. The audio renditions are in pane order;
+    /// they may arrive as one track group or one group each, so count across all of them.</summary>
+    private void ApplyMosaicAudio()
+    {
+        if (_mosaicId is null || _player is not { } p) return;
+        var index = 0;
+        foreach (var item in p.CurrentTracks.Groups)
+        {
+            if (item is not Tracks.Group group || group.Type != C.TrackTypeAudio) continue;
+            for (var t = 0; t < group.Length; t++, index++)
+            {
+                if (index != _mosaicPane) continue;
+                if (group.IsTrackSelected(t)) return;
+                p.TrackSelectionParameters = p.TrackSelectionParameters.BuildUpon()
+                    .SetOverrideForType(new TrackSelectionOverride(group.MediaTrackGroup, t))!
+                    .Build()!;
+                return;
+            }
+        }
+    }
+
+    private void ShowMosaicBanner()
+    {
+        if (_overlayTitle is not { } t) return;
+        var name = _mosaicPane < _mosaicLabels.Count ? _mosaicLabels[_mosaicPane] : $"pane {_mosaicPane + 1}";
+        t.Text = $"Sound: {_mosaicPane + 1} · {name}";
+        SetNativeTitleVisible(true);
+        var shown = _mosaicPane;
+        _overlayHandler.PostDelayed(() => { if (_mosaicId is not null && shown == _mosaicPane) SetNativeTitleVisible(false); }, 2500);
     }
 
     /// <summary>
@@ -514,7 +619,11 @@ public class MainActivity : MauiAppCompatActivity
     {
         if (!_nativePlayerActive || _player is not { } p) return;
         var duration = p.Duration;
-        if (_nativeLive)
+        if (_mosaicId is not null)
+        {
+            _overlayTime!.Text = "";
+        }
+        else if (_nativeLive)
         {
             var behind = LiveBehindMs(p);
             _overlayTime!.Text = behind > 0 ? $"LIVE  -{FormatTime(behind)}" : "";
@@ -572,6 +681,10 @@ public class MainActivity : MauiAppCompatActivity
         if (_player is { } p) { p.Release(); _player = null; }
 
         if (!_nativePlayerActive) return;
+        if (_mosaicId is { } mosaic)
+            _ = Task.Run(() => Server.MultiView.ForwardAsync("POST", $"/api/mosaic/{mosaic}/stop", null));
+        _mosaicId = null;
+        _mosaicLabels = [];
         _nativePlayerActive = false;
         _nativeLive = false;
         _nativeErrorRetries = 0;
@@ -599,6 +712,9 @@ public class MainActivity : MauiAppCompatActivity
         }
 
         public void OnPlayerError(PlaybackException? error) => activity.OnNativePlayerError();
+
+        // Multi-view: the audio tracks appear only once the stream has loaded.
+        public void OnTracksChanged(Tracks? tracks) => activity.ApplyMosaicAudio();
     }
 
     // ------------------------------------------------------------------------------ remote
@@ -673,6 +789,13 @@ public class MainActivity : MauiAppCompatActivity
             return;
         }
 
+        if (_mosaicId is not null)
+        {
+            if (holdTicks == 0 && key == Keycode.DpadLeft) StepMosaicPane(-1);
+            else if (holdTicks == 0 && key == Keycode.DpadRight) StepMosaicPane(+1);
+            return;
+        }
+
         if (_nativeLive)
         {
             // Up/Down change channel; Left/Right rewind and fast-forward - but not while a channel
@@ -696,6 +819,11 @@ public class MainActivity : MauiAppCompatActivity
     {
         if (_nativePlayerActive)
         {
+            if (IsCenterKey(key) && _mosaicId is not null)
+            {
+                ShowMosaicBanner();   // a live composite has nothing to pause back into
+                return true;
+            }
             if (IsCenterKey(key))
             {
                 // Mid channel-change: Center means "go there now" rather than waiting.
@@ -762,6 +890,19 @@ public class MainActivity : MauiAppCompatActivity
                 catch (Exception ex)
                 {
                     Toast.MakeText(activity, $"Playback error: {ex.Message}", ToastLength.Long)!.Show();
+                    activity.CloseNativePlayer();
+                }
+            });
+
+        [JavascriptInterface]
+        [Export("playMosaic")]
+        public void PlayMosaic(string url, string id, string channelsJson) =>
+            activity.RunOnUiThread(() =>
+            {
+                try { activity.ShowMosaicPlayer(url, id, channelsJson); }
+                catch (Exception ex)
+                {
+                    Toast.MakeText(activity, $"Multi-view error: {ex.Message}", ToastLength.Long)!.Show();
                     activity.CloseNativePlayer();
                 }
             });

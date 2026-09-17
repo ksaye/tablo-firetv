@@ -19,6 +19,8 @@ driven entirely by the remote. It talks to the DVR directly — **no server, no 
     or straight away if you press **Center**.
   - **Pause, rewind and fast-forward live TV.** Everything since you tuned the channel stays
     seekable, and the screen shows how far behind live you are.
+- **Multi-view, when there is a tablo-web server on your network** — 2–4 live channels at once.
+  See [Multi-view](#multi-view).
 - **Recordings** — artwork, search and sort, and seeking.
 - **Guide** — a scrolling 14-day grid.
 - **Plays the broadcast as-is.** Tablo streams are MPEG-2 video with AC3 audio. Fire TV devices
@@ -63,6 +65,23 @@ Fire TV asks you to allow the app to install updates.
 | **Back** | Close a panel, or leave | Stop watching | Stop watching |
 
 Hold an arrow to repeat; skips get longer the longer you hold.
+
+## Multi-view
+
+A Fire TV can decode only about one HD broadcast channel at a time, so it cannot tile several by
+itself. A [tablo-web](https://github.com/ksaye/tablo-web) server can: it combines the channels into
+a single stream the Fire TV plays easily.
+
+If a tablo-web server (version 1.2.0 or later) is running on the same network and connected to the
+same Tablo, the app finds it by itself and a **Multi-view** tab appears. There is nothing to set
+up: the app asks the network for a server every minute (UDP port 8788) and signs in to it with the
+Tablo account it already has. With no server, the tab stays hidden.
+
+- Pick 2–4 channels and start. **← / →** move the sound between panes (the server draws a yellow
+  border round the one you hear); **Center** shows which pane has the sound; **Back** stops.
+- Every antenna channel uses a tuner while multi-view runs.
+- tablo-web on Windows opens the firewall for this itself. In Docker it needs host networking —
+  see tablo-web's [Docker notes](https://github.com/ksaye/tablo-web/blob/main/docs/docker.md#networking).
 
 ## How it works
 

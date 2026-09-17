@@ -18,6 +18,7 @@
 
   <nav class="tabs" role="tablist">
     <button class="tab" role="tab" data-view="live">Live TV</button>
+    <button class="tab" role="tab" data-view="multiview" id="multiviewTab" hidden>Multi-view</button>
     <button class="tab" role="tab" data-view="recordings">Recordings</button>
     <button class="tab" role="tab" data-view="guide">Guide</button>
   </nav>
@@ -169,5 +170,20 @@
 <script src="vendor/hls.min.js"></script>
 <script src="app.js"></script>
 <script src="nav.js"></script>
+<script>
+  // Multi-view needs a tablo-web server on the network (the app looks for one); show the tab
+  // only while one is available.
+  (function () {
+    async function check() {
+      try {
+        const res = await fetch('/api/me');
+        const me = await res.json();
+        document.getElementById('multiviewTab').hidden = !me.multiView;
+      } catch { /* keep whatever is shown */ }
+    }
+    check();
+    setInterval(check, 30000);
+  })();
+</script>
 </body>
 </html>

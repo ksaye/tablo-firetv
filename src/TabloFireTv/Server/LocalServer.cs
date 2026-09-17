@@ -39,6 +39,8 @@ public sealed class LocalServer
     private readonly ConcurrentDictionary<string, (string Url, DateTime Created)> _recordingPlaylists = new();
 
     public TabloSession Tablo { get; }
+    /// <summary>Multi-view through a tablo-web server on the network, when there is one.</summary>
+    public MultiViewLink MultiView { get; }
     public int Port { get; }
     public string Secret { get; } = Convert.ToHexString(RandomNumberGenerator.GetBytes(24));
     public string BaseUrl => $"http://127.0.0.1:{Port}";
@@ -47,6 +49,7 @@ public sealed class LocalServer
     {
         _log = loggers.CreateLogger("TabloFireTv.Server");
         Tablo = new TabloSession(loggers.CreateLogger<TabloSession>());
+        MultiView = new MultiViewLink(loggers.CreateLogger("TabloFireTv.MultiView"));
         Port = FreePort();
         _listener.Prefixes.Add($"http://127.0.0.1:{Port}/");
         _device.DefaultRequestHeaders.UserAgent.ParseAdd(TabloUserAgent);
@@ -58,7 +61,19 @@ public sealed class LocalServer
         _listener.Start();
         _ = Task.Run(AcceptLoopAsync);
         _ = Task.Run(() => Tablo.WarmAsync(CancellationToken.None));
+        _ = Task.Run(LookForMultiViewAsync);
         _log.LogInformation("Listening on {Url}", BaseUrl);
+    }
+
+    /// <summary>Keep looking for (and checking on) a tablo-web server that can do multi-view.</summary>
+    private async Task LookForMultiViewAsync()
+    {
+        while (_listener.IsListening)
+        {
+            try { await MultiView.RefreshAsync(Tablo.CurrentCredentials, Tablo.Device?.ServerId); }
+            catch { /* never fatal */ }
+            await Task.Delay(TimeSpan.FromSeconds(30));
+        }
     }
 
     private static int FreePort()
@@ -130,6 +145,7 @@ public sealed class LocalServer
                     name = Tablo.AccountEmail,
                     device = Tablo.Device?.Name,
                     canSaveCredentials = true,
+                    multiView = MultiView.Available,
                     credentialsSaved = CredentialStore.HasSaved
                 });
                 return;
@@ -209,9 +225,25 @@ public sealed class LocalServer
             case ("GET", "/api/update"):
                 await WriteJsonAsync(response, 200, new { available = false });
                 return;
+            // A multi-view already running on the server (from a browser, say) is not rejoined: the
+            // TV starts its own, which replaces it.
             case ("GET", "/api/mosaic"):
                 await WriteJsonAsync(response, 200, new { running = false });
                 return;
+
+            case (_, _) when path.StartsWith("/api/mosaic"):
+            {
+                byte[]? body = null;
+                if (request.HasEntityBody)
+                {
+                    using var buffer = new MemoryStream();
+                    await request.InputStream.CopyToAsync(buffer);
+                    body = buffer.ToArray();
+                }
+                var (status, type, bytes) = await MultiView.ForwardAsync(method, request.Url!.PathAndQuery, body);
+                await WriteAsync(response, status, type, bytes);
+                return;
+            }
         }
 
         if (method == "GET" && path.StartsWith("/api/image/") && long.TryParse(path["/api/image/".Length..], out var imageId))
