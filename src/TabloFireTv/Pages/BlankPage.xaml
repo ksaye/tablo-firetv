@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Never actually seen: MainActivity swaps in the WebView + player overlay before this
+     renders. It exists only because UseMaui=true needs a page to hand the Window. -->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="TabloFireTv.Pages.BlankPage" />

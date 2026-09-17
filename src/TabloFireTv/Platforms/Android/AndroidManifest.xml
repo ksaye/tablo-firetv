@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application android:allowBackup="false"
+               android:icon="@mipmap/appicon"
+               android:roundIcon="@mipmap/appicon_round"
+               android:banner="@drawable/banner"
+               android:hardwareAccelerated="true"
+               android:supportsRtl="true"
+               android:networkSecurityConfig="@xml/network_security_config"
+               android:label="Tablo for Fire TV">
+
+    <!-- Hands a downloaded update APK to the package installer as a content:// URI - a file://
+         URI has thrown FileUriExposedException since Nougat. Own authority, own paths file,
+         exposing only the updates folder. -->
+    <provider
+        android:name="androidx.core.content.FileProvider"
+        android:authorities="${applicationId}.updates"
+        android:exported="false"
+        android:grantUriPermissions="true">
+        <meta-data
+            android:name="android.support.FILE_PROVIDER_PATHS"
+            android:resource="@xml/update_paths" />
+    </provider>
+  </application>
+
+  <uses-permission android:name="android.permission.INTERNET" />
+  <!-- Lets the app offer its own updates. Android still shows the confirm dialog. -->
+  <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+  <!-- Fire TV / Android TV: no touchscreen, and this is what puts the app's tile on the
+       TV home screen row. -->
+  <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+  <uses-feature android:name="android.software.leanback" android:required="true" />
+</manifest>

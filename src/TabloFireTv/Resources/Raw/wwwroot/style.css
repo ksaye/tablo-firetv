@@ -1,0 +1,337 @@
+/* Tablo web — dark by design: this is a television, and it is mostly looked at in the evening. */
+
+:root {
+  --bg: #0d1117;
+  --panel: #161b22;
+  --panel-2: #1c232d;
+  --line: #2a323d;
+  --text: #e6edf3;
+  --muted: #8b98a5;
+  --accent: #4da3ff;
+  --accent-dim: #1f4e7a;
+  --good: #3fb950;
+  --warn: #d29922;
+  --bad: #f85149;
+  --radius: 10px;
+  --head: 56px;
+}
+
+* { box-sizing: border-box; }
+
+/* An author `display` beats the user agent's [hidden] rule on specificity, so anything given a
+   display below would stay on screen when hidden. Settle it once, here. */
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, select { font: inherit; color: inherit; }
+
+/* ------------------------------------------------------------------ top bar */
+
+.topbar {
+  position: sticky; top: 0; z-index: 40;
+  display: flex; align-items: center; gap: 20px;
+  height: var(--head); padding: 0 16px;
+  background: rgba(13, 17, 23, .92);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand { display: flex; align-items: center; gap: 9px; font-weight: 650; letter-spacing: .2px; }
+.brand svg { width: 26px; height: 26px; fill: none; }
+.brand rect { fill: var(--accent); }
+.brand .tri { fill: var(--bg); }
+.brand .ant { stroke: var(--accent); stroke-width: 2.5; stroke-linecap: round; }
+
+.tabs { display: flex; gap: 4px; }
+.tab {
+  background: none; border: 0; padding: 8px 14px; border-radius: 8px;
+  color: var(--muted); cursor: pointer; font-weight: 550;
+}
+.tab:hover { background: var(--panel); color: var(--text); }
+.tab[aria-selected="true"] { background: var(--accent-dim); color: #fff; }
+
+.status { margin-left: auto; display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.dot.ok { background: var(--good); }
+.dot.bad { background: var(--bad); }
+.dot.busy { background: var(--warn); animation: pulse 1.4s infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+
+/* Who is signed in. Hidden entirely when the site is running without Entra. */
+.who { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+.who #whoName { max-width: 16ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.who .ghost { padding: 4px 10px; font-size: 12px; text-decoration: none; }
+@media (max-width: 700px) { .who #whoName { display: none; } }
+
+.banner {
+  margin: 12px 16px 0; padding: 10px 14px; border-radius: var(--radius);
+  background: #3d1d1d; border: 1px solid #6b2b2b; color: #ffc9c4; font-size: 14px;
+}
+
+.update-banner {
+  margin: 12px 16px 0; padding: 10px 14px; border-radius: var(--radius);
+  background: #16324a; border: 1px solid #2a5478; color: #bfe0ff; font-size: 14px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.update-banner button { margin-left: auto; }
+.update-banner #updateDismiss { margin-left: 0; }
+
+/* -------------------------------------------------------------------- views */
+
+main { padding: 16px; max-width: 1600px; margin: 0 auto; }
+
+.viewhead {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 14px;
+}
+.viewhead h1 { font-size: 20px; margin: 0; font-weight: 600; }
+.count { color: var(--muted); font-weight: 400; font-size: 14px; }
+.viewtools { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+.search, .select {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 7px 11px; min-width: 180px; outline: none;
+}
+.search:focus, .select:focus { border-color: var(--accent); }
+.select { min-width: 0; }
+
+.ghost {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 7px 12px; cursor: pointer;
+}
+.ghost:hover { background: var(--panel-2); border-color: var(--accent); }
+.nudge { display: flex; gap: 4px; }
+
+.primary {
+  background: var(--accent); border: 0; color: #06121f; font-weight: 600;
+  border-radius: 8px; padding: 9px 16px; cursor: pointer;
+}
+.primary:hover { filter: brightness(1.1); }
+
+.empty { color: var(--muted); padding: 40px 0; text-align: center; }
+
+/* -------------------------------------------------------------------- cards */
+
+.cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.cards.recordings { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+
+.card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  overflow: hidden; cursor: pointer; display: flex; flex-direction: column;
+  transition: border-color .12s, transform .12s;
+}
+.card:hover { border-color: var(--accent); transform: translateY(-1px); }
+
+.thumb {
+  aspect-ratio: 16/9; background: #0b0f14 center/cover no-repeat;
+  display: flex; align-items: center; justify-content: center;
+  color: #2e3946; font-size: 34px; position: relative;
+}
+.thumb .progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: #00000060; }
+.thumb .progress > i { display: block; height: 100%; background: var(--accent); }
+
+.card-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 3px; flex: 1; }
+.card-title { font-weight: 600; line-height: 1.3; }
+.card-sub { color: var(--muted); font-size: 13px; }
+.card-meta { color: var(--muted); font-size: 12.5px; margin-top: auto; padding-top: 6px; display: flex; gap: 8px; flex-wrap: wrap; }
+
+.chan {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--panel-2); border-radius: 5px; padding: 1px 7px; font-size: 12px;
+  color: var(--text); font-variant-numeric: tabular-nums;
+}
+
+.badge { font-size: 11px; padding: 1px 6px; border-radius: 4px; font-weight: 600; letter-spacing: .3px; }
+.badge.new { background: #14361f; color: var(--good); }
+.badge.rec { background: #3d1d1d; color: var(--bad); }
+.badge.kept { background: #3a2f10; color: var(--warn); }
+.badge.watched { background: var(--panel-2); color: var(--muted); }
+.badge.free { background: #12303a; color: #7fd3ea; }
+
+/* Live cards lead with the channel rather than artwork — there is no artwork for live. */
+.live-card .card-body { padding: 12px 14px; }
+.live-num { font-size: 13px; color: var(--accent); font-weight: 650; font-variant-numeric: tabular-nums; }
+.live-prog { height: 3px; background: var(--panel-2); border-radius: 2px; overflow: hidden; margin-top: 8px; }
+.live-prog > i { display: block; height: 100%; background: var(--accent); }
+
+/* -------------------------------------------------------------------- guide */
+
+.loading { padding: 32px 0; color: var(--muted); text-align: center; }
+.loading .bar { height: 6px; background: var(--panel); border-radius: 3px; overflow: hidden; max-width: 420px; margin: 0 auto 12px; }
+.loading .bar > div { height: 100%; width: 0; background: var(--accent); transition: width .4s; }
+
+/* One scroll container in both axes, so the pinned channel column and the pinned time ruler
+   stay put no matter which way the grid is scrolled. Rows are sized to their content rather
+   than the viewport — that is what gives the timeline something to scroll. */
+.guide {
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel);
+  overflow: auto; max-height: calc(100vh - var(--head) - 120px);
+}
+
+.guide-times, .guide-row { display: grid; grid-template-columns: 108px max-content; }
+.guide-times { position: sticky; top: 0; z-index: 20; background: var(--panel-2); border-bottom: 1px solid var(--line); }
+.guide-times .spacer {
+  position: sticky; left: 0; z-index: 25;
+  background: var(--panel-2); border-right: 1px solid var(--line);
+}
+.guide-times .slots { display: flex; position: relative; height: 30px; }
+.guide-times .slot {
+  flex: none; border-left: 1px solid var(--line); font-size: 12px; color: var(--muted);
+  padding: 6px 0 0 6px;
+}
+
+.guide-row { border-bottom: 1px solid var(--line); }
+.guide-row:last-child { border-bottom: 0; }
+
+.guide-chan {
+  padding: 8px 10px; border-right: 1px solid var(--line); background: var(--panel-2);
+  position: sticky; left: 0; z-index: 10; display: flex; flex-direction: column; justify-content: center;
+}
+.guide-chan b { font-size: 13px; }
+.guide-chan span { font-size: 11.5px; color: var(--muted); }
+
+.guide-slots { position: relative; height: 56px; }
+.guide-slots .gridline { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line); }
+
+.airing {
+  position: absolute; top: 4px; bottom: 4px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
+  padding: 5px 8px; overflow: hidden; cursor: pointer; text-align: left;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.airing:hover { border-color: var(--accent); background: #222b36; }
+.airing b { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.airing span { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.airing.scheduled { border-color: var(--good); }
+.airing.conflict { border-color: var(--warn); }
+.airing.onair { background: #17293a; }
+.airing .tag { position: absolute; top: 4px; right: 5px; width: 6px; height: 6px; border-radius: 50%; }
+.airing.scheduled .tag { background: var(--good); }
+.airing.conflict .tag { background: var(--warn); }
+
+.nowline { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--bad); z-index: 5; pointer-events: none; }
+
+/* ------------------------------------------------------------------- player */
+
+.scrim { position: fixed; inset: 0; background: #000000cc; z-index: 50; }
+
+.player {
+  position: fixed; z-index: 60; inset: 3vh 3vw auto; margin: 0 auto;
+  max-width: 1200px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 12px; overflow: hidden; box-shadow: 0 24px 60px #000a;
+}
+.player-head { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.player-title { display: flex; flex-direction: column; min-width: 0; }
+.player-title strong { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.player-title span { font-size: 12.5px; color: var(--muted); }
+.close { margin-left: auto; padding: 5px 10px; }
+
+/* The captions toggle sits with the close button; whichever of the two comes first takes the
+   gap, so the pair stays together on the right whether or not captions are on offer. */
+.cc { margin-left: auto; padding: 5px 10px; font-weight: 700; letter-spacing: .5px; }
+.cc + .close { margin-left: 8px; }
+.cc[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #051016; }
+
+/* Broadcast captions arrive as a wall of white on nothing; a box behind them is what makes
+   them readable over a bright picture, and 608 text is monospaced by convention. */
+video::cue {
+  background: #000000bf; color: #fff;
+  font-family: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+  font-size: 88%; line-height: 1.35;
+}
+
+.player-stage { position: relative; background: #000; aspect-ratio: 16/9; }
+.player-stage video { width: 100%; height: 100%; display: block; background: #000; }
+
+/* Full screen: drop the 16:9 box so the stage fills whatever shape the screen is, and letterbox
+   the picture inside it rather than stretching. */
+.player-stage:fullscreen { aspect-ratio: auto; width: 100vw; height: 100vh; }
+.player-stage:fullscreen video { object-fit: contain; }
+
+.player-overlay {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 14px;
+  background: #000000b0; color: var(--muted); text-align: center; padding: 20px;
+}
+/* A mid-stream hiccup shouldn't black out the picture — float the spinner over the video. */
+.player-overlay.subtle { background: none; }
+.player-overlay.subtle #playerMsg {
+  background: #000000a0; border-radius: 6px; padding: 3px 10px; font-size: 13px;
+}
+.spinner {
+  width: 28px; height: 28px; border: 3px solid var(--line); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.scrub { padding: 12px 16px 14px; }
+.scrub-bar { position: relative; height: 6px; background: var(--panel-2); border-radius: 3px; cursor: pointer; }
+/* How much of the recording has been transcoded and is therefore instantly seekable. */
+.scrub-ready { position: absolute; inset: 0 auto 0 0; background: #2f3d4d; border-radius: 3px; }
+.scrub-played { position: absolute; inset: 0 auto 0 0; background: var(--accent); border-radius: 3px; }
+.scrub-knob {
+  position: absolute; top: 50%; width: 13px; height: 13px; margin: -6.5px 0 0 -6.5px;
+  border-radius: 50%; background: #fff; pointer-events: none;
+}
+.scrub-times { display: flex; justify-content: space-between; color: var(--muted); font-size: 12.5px; margin-top: 7px; font-variant-numeric: tabular-nums; }
+
+/* --------------------------------------------------------------- multi-view */
+
+.mv-hint { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+
+.mv-card { position: relative; }
+.mv-card.selected { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+/* The pick order is the pane order, so the badge has to show the number, not just a tick. */
+.mv-card.selected::after {
+  content: attr(data-pick);
+  position: absolute; top: 8px; right: 8px; min-width: 20px; height: 20px; padding: 0 4px;
+  display: grid; place-items: center; border-radius: 10px;
+  background: var(--accent); color: #06121f; font-size: 12px; font-weight: 700;
+}
+
+.mosaic-bar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 10px 14px; border-top: 1px solid var(--line);
+}
+.mosaic-panes { display: flex; gap: 6px; flex-wrap: wrap; margin-right: auto; }
+
+/* In full screen the bar is moved inside the stage (see dockMosaicBar), where it has to float
+   over the picture instead of sitting under it. */
+.player-stage:fullscreen .mosaic-bar {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 5;
+  border-top: 0; background: rgba(13, 17, 23, 0.82);
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+}
+.mosaic-pane[aria-pressed="true"],
+#mosaicRotateBtn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #051016; }
+
+/* ------------------------------------------------------------- detail sheet */
+
+.sheet {
+  position: fixed; z-index: 60; right: 16px; bottom: 16px; width: min(420px, calc(100vw - 32px));
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  padding: 14px 16px 16px; box-shadow: 0 20px 50px #000a;
+}
+.sheet-head { display: flex; gap: 12px; align-items: flex-start; }
+.sheet-head strong { display: block; font-size: 15.5px; }
+.sheet-head span { color: var(--muted); font-size: 13px; }
+.sheet p { color: #c3cdd8; font-size: 14px; margin: 10px 0 0; max-height: 32vh; overflow: auto; }
+.sheet-meta { color: var(--muted); font-size: 12.5px; margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap; }
+.sheet-actions { margin-top: 14px; display: flex; gap: 8px; }
+
+@media (max-width: 640px) {
+  .topbar { gap: 10px; padding: 0 10px; }
+  .brand span { display: none; }
+  .status { font-size: 12px; }
+  .tab { padding: 8px 10px; }
+  main { padding: 12px 10px; }
+  .player { inset: 0; max-width: none; border-radius: 0; border: 0; }
+  .guide-times, .guide-row { grid-template-columns: 76px 1fr; }
+}

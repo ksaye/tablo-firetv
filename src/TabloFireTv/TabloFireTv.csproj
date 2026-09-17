@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Android only: a Fire TV sideload. -->
+    <TargetFrameworks>net10.0-android</TargetFrameworks>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>TabloFireTv</RootNamespace>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <ApplicationTitle>Tablo for Fire TV</ApplicationTitle>
+    <ApplicationId>io.github.ksaye.tablofiretv</ApplicationId>
+    <ApplicationDisplayVersion>1.0.0</ApplicationDisplayVersion>
+    <ApplicationVersion>1</ApplicationVersion>
+
+    <SupportedOSPlatformVersion>24.0</SupportedOSPlatformVersion>
+
+    <!-- Many Fire TV Sticks are 32-bit ARM only (armeabi-v7a). The default publish carries only
+         arm64-v8a + x86_64, and the installer silently refuses an APK with no matching ABI. -->
+    <RuntimeIdentifiers>android-arm;android-arm64;android-x86;android-x64</RuntimeIdentifiers>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <AndroidPackageFormat>apk</AndroidPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <MauiIcon Include="Resources\Images\appicon.svg" ForegroundFile="Resources\Images\appiconfg.svg" Color="#0F1720" />
+    <MauiSplashScreen Include="Resources\Splash\splash_screen.svg" Color="#0F1720" BaseSize="128,128" />
+    <!-- The web interface, served to the WebView by the in-app server (Server/LocalServer.cs). -->
+    <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.20" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+
+    <!-- Everything plays through a native Media3 ExoPlayer, not the WebView's <video>: the Tablo
+         streams MPEG-2 video with AC3 audio, which the Fire TV decodes in hardware but no WebView
+         can play. -->
+    <PackageReference Include="Xamarin.AndroidX.Media3.ExoPlayer" Version="1.10.1.1" />
+    <!-- DefaultMediaSourceFactory loads the HLS module by reflection; it must be on the classpath. -->
+    <PackageReference Include="Xamarin.AndroidX.Media3.ExoPlayer.Hls" Version="1.10.1.1" />
+    <PackageReference Include="Xamarin.AndroidX.Media3.UI" Version="1.10.1.1" />
+    <PackageReference Include="Xamarin.AndroidX.Media3.DataSource" Version="1.10.1.1" />
+  </ItemGroup>
+
+</Project>

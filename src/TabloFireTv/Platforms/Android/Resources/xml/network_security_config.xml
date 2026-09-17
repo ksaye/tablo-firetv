@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Tablo only speaks plain HTTP on the local network, and the app's own web interface is
+     served over plain HTTP on 127.0.0.1. Android refuses cleartext by default. A domain-config
+     cannot match "whatever address the Tablo has on your LAN", so cleartext is allowed app-wide;
+     everything else the app talks to (Tablo's cloud sign-in, GitHub) is HTTPS by URL. -->
+<network-security-config>
+  <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

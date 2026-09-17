@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Media3's default video sink is a SurfaceView, a separate compositor "hole punch" layer -
+     exactly the class of thing that showed a black picture (audio only) in the WebView's own
+     video pipeline on this Fire TV Stick. Forcing texture_view here renders into the normal view
+     hierarchy as a GL texture instead, sidestepping whatever compositor quirk this device has
+     with SurfaceView specifically. surface_type is XML/attrs-only - PlayerView has no runtime
+     setter for it, hence inflating this instead of `new PlayerView(context)`. -->
+<androidx.media3.ui.PlayerView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nativePlayerView"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:surface_type="texture_view" />
