@@ -56,12 +56,13 @@
   <section class="view" id="view-multiview" hidden>
     <div class="viewhead">
       <h1>Multi-view <span class="count" id="mvCount"></span></h1>
-      <div class="viewtools">
-        <button id="mvStart" class="ghost" disabled>Start multi-view</button>
-      </div>
     </div>
     <p class="mv-hint">Pick 2–4 live channels. Every pane uses a tuner, so nothing can record
       while multi-view is running.</p>
+    <!-- Full width, and directly above the grid, so Up from any channel reaches it. A button off
+         in the corner is aligned with nothing, and D-pad Up from a channel went past it to the
+         tabs instead. -->
+    <button id="mvStart" class="ghost mv-start" disabled>Start multi-view</button>
     <div class="cards" id="mvList"></div>
   </section>
 
