@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.0 — unreleased
+## 1.1.0 — 2026-09-18
 
 - **Multi-view through tablo-web.** The app broadcasts tablo-web's discovery query (UDP 8788) every
   minute; a server that answers, is connected to the same Tablo and offers multi-view is signed in
