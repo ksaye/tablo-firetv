@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **The daily guide reload is spread across the 3am hour** instead of starting on the stroke of
+  three. A DVR is usually shared with other things that reload their own guide, and a full load is
+  hundreds of calls: measured on a gen-4 box, one client reloading made it refuse connections for
+  about five minutes, four at once for nearly thirty — and one of those came back with a partial
+  guide. Each install now picks a minute at random on first run and keeps it.
+
 ## 1.1.1 — 2026-09-19
 
 - **Channel up/down responds at once.** Every press was working out what is on now across the

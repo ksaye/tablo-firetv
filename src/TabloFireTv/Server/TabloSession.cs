@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Maui.Storage;
 using TabloFireTv.Models;
 using TabloFireTv.Services;
 
@@ -452,10 +453,41 @@ public sealed class TabloSession(ILogger<TabloSession> log)
     /// </summary>
     private const int GuideHour = 3;
 
-    /// <summary>The next <see cref="GuideHour"/> strictly after <paramref name="after"/>, local time.</summary>
+    /// <summary>
+    /// Minutes past <see cref="GuideHour"/> this particular install reloads at, fixed per device.
+    ///
+    /// A DVR is usually shared with other things that reload their own guide — another copy of
+    /// this app, a browser front end, a recording picker — and a full load is hundreds of calls.
+    /// All of them starting on the same stroke of 3am is what makes a Tablo refuse connections
+    /// for half an hour (measured on a gen-4 box in September 2026: one client reloading took
+    /// five minutes of refusals, four at once took nearly thirty, and one of them came back with
+    /// a partial guide). Spreading installs across the hour costs nothing and keeps them apart.
+    /// </summary>
+    private static readonly int GuideMinute = PickGuideMinute();
+
+    private static int PickGuideMinute()
+    {
+        try
+        {
+            const string key = "guide_refresh_minute";
+            var stored = Preferences.Get(key, -1);
+            if (stored is >= 0 and < 60) return stored;
+
+            var minute = Random.Shared.Next(60);
+            Preferences.Set(key, minute);
+            return minute;
+        }
+        catch
+        {
+            // No settings storage: 3am sharp, which is what this did before.
+            return 0;
+        }
+    }
+
+    /// <summary>The next refresh time strictly after <paramref name="after"/>, local time.</summary>
     private static DateTime NextGuideRefresh(DateTime after)
     {
-        var today = after.Date.AddHours(GuideHour);
+        var today = after.Date.AddHours(GuideHour).AddMinutes(GuideMinute);
         return today > after ? today : today.AddDays(1);
     }
 
