@@ -341,15 +341,13 @@ public sealed class LocalServer
             return channels.Select(c => new NowDto(c, null, 0)).ToList();
 
         var now = DateTime.UtcNow;
-        var byChannel = (await Tablo.GuideAsync())
-            .Select(AiringDto.From)
-            .Where(a => a is not null && a!.StartUtc <= now && a.EndUtc > now)
-            .GroupBy(a => a!.ChannelPath)
-            .ToDictionary(g => g.Key, g => g.First()!);
+        // The session keeps this ready; working it out from the whole guide here cost a second or
+        // more on a Fire TV Stick, on the channel-change key press.
+        var onNow = await Tablo.NowByChannelAsync();
 
         return channels.Select(c =>
         {
-            byChannel.TryGetValue(c.Path, out var airing);
+            var airing = onNow.TryGetValue(c.Path, out var a) ? AiringDto.From(a) : null;
             var progress = airing is { DurationSeconds: > 0 }
                 ? Math.Clamp((now - airing.StartUtc).TotalSeconds / airing.DurationSeconds, 0, 1)
                 : 0;

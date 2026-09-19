@@ -44,6 +44,13 @@ public sealed class TabloSession(ILogger<TabloSession> log)
     /// <summary>Progress of a guide load in flight, 0..1, or null when not loading.</summary>
     public double? GuideProgress { get; private set; }
 
+    // What is on now on each channel, worked out once and kept until it stops being true.
+    private readonly object _nowGate = new();
+    private List<GuideAiring>? _nowFromDevice;
+    private List<GuideAiring>? _nowFromFast;
+    private Dictionary<string, GuideAiring>? _nowByChannel;
+    private DateTime _nowGoodUntil = DateTime.MinValue;
+
     // ------------------------------------------------------------------ credentials
 
     /// <summary>
@@ -292,6 +299,60 @@ public sealed class TabloSession(ILogger<TabloSession> log)
             GuideStore.Save(serverId, device, fast, log);
 
         return fast.Count == 0 ? device : device.Concat(fast).ToList();
+    }
+
+    /// <summary>
+    /// What is on now on each channel, by channel path.
+    ///
+    /// Worked out once and then kept, because the obvious way is far too slow here: the guide is
+    /// forty thousand airings, and picking today's programme out of it means reading every one of
+    /// their start times. On a Fire TV Stick that took a second or more — and the Live TV screen
+    /// and every channel-change key press asked for it. This answer is rebuilt only when the guide
+    /// itself reloads, or when a programme in it starts or ends, which is exactly when it changes.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, GuideAiring>> NowByChannelAsync(CancellationToken ct = default)
+    {
+        var device = await DeviceGuideAsync(false, ct);
+        var fast = await FastGuideAsync(false, ct);
+        var now = DateTime.UtcNow;
+
+        lock (_nowGate)
+        {
+            if (_nowByChannel is { } cached && now < _nowGoodUntil
+                && ReferenceEquals(device, _nowFromDevice) && ReferenceEquals(fast, _nowFromFast))
+                return cached;
+
+            var byChannel = new Dictionary<string, GuideAiring>();
+            // Also the moment this answer expires: the first programme boundary ahead of us.
+            // Capped, so a channel with no listings at all is still looked at again before long.
+            var goodUntil = now.AddMinutes(15);
+
+            foreach (var airing in device.Count == 0 ? fast : fast.Count == 0 ? device : device.Concat(fast))
+            {
+                var channel = airing.AiringDetails.ChannelPath;
+                if (string.IsNullOrEmpty(channel)) continue;
+
+                var start = TabloClient.ParseDate(airing.AiringDetails.Datetime);
+                if (start == DateTime.MinValue) continue;
+                var end = start.AddSeconds(airing.AiringDetails.Duration);
+
+                if (start <= now && end > now)
+                {
+                    byChannel[channel] = airing;
+                    if (end < goodUntil) goodUntil = end;
+                }
+                else if (start > now && start < goodUntil)
+                {
+                    goodUntil = start;
+                }
+            }
+
+            _nowFromDevice = device;
+            _nowFromFast = fast;
+            _nowByChannel = byChannel;
+            _nowGoodUntil = goodUntil;
+            return byChannel;
+        }
     }
 
     /// <summary>

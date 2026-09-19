@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.1 — unreleased
+
+- **Channel up/down responds at once.** Every press was working out what is on now across the
+  whole guide first — forty thousand airings, every start time parsed, on the Stick's own
+  processor — before it would even show the channel banner, which is what made a press take a
+  second or more. The answer is now prepared once and kept until the guide reloads or a programme
+  in it starts or ends, and a press never waits for it: the list is refreshed in the background,
+  and fetched up front while a live channel is starting.
+
 ## 1.1.0 — 2026-09-18
 
 - **Multi-view through tablo-web.** The app broadcasts tablo-web's discovery query (UDP 8788) every

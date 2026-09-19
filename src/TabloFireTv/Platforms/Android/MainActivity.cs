@@ -173,6 +173,7 @@ public class MainActivity : MauiAppCompatActivity
     private int _tuneGeneration;
     private List<NowDto>? _lineup;
     private DateTime _lineupFetchedUtc;
+    private int _lineupRefreshing;
 
     // Multi-view (a tablo-web server's combined stream): its session id, the panes' names, and
     // which pane has the sound. Null id when not in multi-view.
@@ -366,6 +367,10 @@ public class MainActivity : MauiAppCompatActivity
         SetNativeTitleVisible(false);
         player.Play();
         _overlayHandler.Post(NativeOverlayTick);
+
+        // Fetch the channel list while the picture is starting, so the first Up or Down press
+        // already has one to step through.
+        if (live) _ = RefreshLineupAsync();
     }
 
     /// <summary>
@@ -503,15 +508,13 @@ public class MainActivity : MauiAppCompatActivity
         if (from.Length == 0) return;
         var generation = ++_tuneGeneration;
 
-        try
-        {
-            if (_lineup is null || DateTime.UtcNow - _lineupFetchedUtc > TimeSpan.FromMinutes(1))
-            {
-                var lineup = await Task.Run(Server.NowAsync);
-                if (lineup.Count > 0) { _lineup = lineup; _lineupFetchedUtc = DateTime.UtcNow; }
-            }
-        }
-        catch { /* keep whatever list we had */ }
+        // Never wait for the channel list here: a key press has to move the moment it is pressed.
+        // A stale list is refreshed in the background, and only the very first press — before
+        // there is any list at all — waits, and then only if opening the player has not already
+        // fetched one.
+        if (_lineup is null) await RefreshLineupAsync();
+        else if (DateTime.UtcNow - _lineupFetchedUtc > TimeSpan.FromMinutes(1)) _ = RefreshLineupAsync();
+
         if (!_nativePlayerActive || _lineup is not { Count: > 0 } all) return;
 
         var current = all.FindIndex(n => n.Channel.Path == from);
@@ -523,6 +526,19 @@ public class MainActivity : MauiAppCompatActivity
         _targetPath = next.Channel.Path;
         ShowChannelBanner(next);
         await TuneAsync(next.Channel.Path, generation, ChannelSettleMs);
+    }
+
+    /// <summary>Fetch the Live TV line-up for channel up/down. Safe to call while one is running.</summary>
+    private async Task RefreshLineupAsync()
+    {
+        if (Interlocked.Exchange(ref _lineupRefreshing, 1) == 1) return;
+        try
+        {
+            var lineup = await Task.Run(Server.NowAsync);
+            if (lineup.Count > 0) { _lineup = lineup; _lineupFetchedUtc = DateTime.UtcNow; }
+        }
+        catch { /* keep whatever list we had */ }
+        finally { Interlocked.Exchange(ref _lineupRefreshing, 0); }
     }
 
     private void ShowChannelBanner(NowDto now)
