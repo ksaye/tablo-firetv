@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.1 — unreleased
+## 1.1.1 — 2026-09-19
 
 - **Channel up/down responds at once.** Every press was working out what is on now across the
   whole guide first — forty thousand airings, every start time parsed, on the Stick's own
