@@ -182,6 +182,18 @@ public class MainActivity : MauiAppCompatActivity
     private int _mosaicPane;
 
     private IExoPlayer? _player;
+
+    /// <summary>
+    /// ExoPlayer's default buffer, capped by size. The default lets a video stream buffer up to
+    /// 50s / ~128 MB of Java byte arrays, and a 2nd-gen Stick gives an app a 192 MB heap, shared
+    /// with the WebView. The Tablo's raw MPEG-2 is ~15-19 Mbps, so a paused channel or a
+    /// recording could fill most of it. 40 MB is still ~17s of the heaviest channel.
+    /// </summary>
+    private static ILoadControl CappedLoadControl() =>
+        new DefaultLoadControl.Builder()
+            .SetTargetBufferBytes(40 * 1024 * 1024)!
+            .SetPrioritizeTimeOverSizeThresholds(false)!
+            .Build()!;
     private PlayerView? _playerView;
     private FrameLayout? _nativeOverlay;
     private TextView? _overlayTitle;
@@ -339,7 +351,10 @@ public class MainActivity : MauiAppCompatActivity
             http.SetDefaultRequestProperties(new Dictionary<string, string> { ["Cookie"] = cookie });
         var sources = new DefaultMediaSourceFactory(this).SetDataSourceFactory(http);
 
-        var player = new ExoPlayerBuilder(this).SetMediaSourceFactory(sources).Build()!;
+        var player = new ExoPlayerBuilder(this)
+            .SetMediaSourceFactory(sources)
+            .SetLoadControl(CappedLoadControl())
+            .Build()!;
         // Inflated from XML because surface_type (a TextureView, which composites reliably over the
         // WebView on Fire TV) has no runtime setter.
         var playerView = (PlayerView)LayoutInflater.From(this)!.Inflate(Resource.Layout.player_view, _root, false)!;
@@ -359,6 +374,11 @@ public class MainActivity : MauiAppCompatActivity
         _player = player;
         _nativePlayerActive = true;
         SetKeepScreenOn(true);
+        // Hidden, not just covered. A covered WebView still redraws its page on every animation
+        // frame - measured on a 2nd-gen Stick at ~50% of a core, two thirds of the app's CPU during
+        // live TV, against ~20% for ExoPlayer and the decoder. Its scripts keep running; only the
+        // drawing stops.
+        _webView.Visibility = ViewStates.Invisible;
 
         BuildNativeOverlay(title, subtitle);
         // Live has no progress bar; its time line only says how far behind live a pause or rewind
@@ -695,6 +715,11 @@ public class MainActivity : MauiAppCompatActivity
         }
         if (_playerView is { } pv) { _root.RemoveView(pv); _playerView = null; }
         if (_player is { } p) { p.Release(); _player = null; }
+        if (_webView.Visibility != ViewStates.Visible)
+        {
+            _webView.Visibility = ViewStates.Visible;
+            _webView.RequestFocus();
+        }
 
         if (!_nativePlayerActive) return;
         if (_mosaicId is { } mosaic)
@@ -719,7 +744,7 @@ public class MainActivity : MauiAppCompatActivity
 
     /// <summary>Closes the player at the end of a recording, and clears the retry count once a
     /// live stream is playing again.</summary>
-    private sealed class PlayerListener(MainActivity activity) : Java.Lang.Object, IPlayerListener
+    private sealed class PlayerListener(MainActivity activity) : DisposingPlayerListener
     {
         public void OnPlaybackStateChanged(int playbackState)
         {
@@ -730,7 +755,11 @@ public class MainActivity : MauiAppCompatActivity
         public void OnPlayerError(PlaybackException? error) => activity.OnNativePlayerError();
 
         // Multi-view: the audio tracks appear only once the stream has loaded.
-        public void OnTracksChanged(Tracks? tracks) => activity.ApplyMosaicAudio();
+        public override void OnTracksChanged(Tracks? tracks)
+        {
+            activity.ApplyMosaicAudio();
+            base.OnTracksChanged(tracks);
+        }
     }
 
     // ------------------------------------------------------------------------------ remote

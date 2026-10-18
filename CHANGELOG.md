@@ -1,7 +1,14 @@
 # Changelog
 
-## Unreleased
+## 1.1.2 — 2026-10-17
 
+- **No more crashes during long viewing.** The player kept every copy of the live channel's
+  playlist it was handed - and that playlist only grows while a channel is tuned - so memory
+  climbed until the Stick killed the app (in minutes on a 2nd-gen Stick). Each one is now let go
+  of at once; memory stays flat.
+- **Much lighter on the Stick while playing.** The page behind the video is hidden instead of just
+  covered, so it stops redrawing itself: the app's CPU during live TV drops by about half.
+- The player's read-ahead buffer is capped at 40 MB (about 17 seconds of the heaviest channel).
 - **The daily guide reload is spread across the 3am hour** instead of starting on the stroke of
   three. A DVR is usually shared with other things that reload their own guide, and a full load is
   hundreds of calls: measured on a gen-4 box, one client reloading made it refuse connections for
