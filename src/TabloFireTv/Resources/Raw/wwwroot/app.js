@@ -1067,6 +1067,9 @@ function closePlayer() {
   if (mv.session) teardownMosaic(true);
   state.media = null;
   stopSession();
+  // The minute timer skips the listings while something is playing, so a channel watched (or
+  // paused) overnight came back to yesterday's grid. Re-read it on the way out.
+  if (state.view === 'live') loadNow();
 }
 
 $('playerClose').addEventListener('click', closePlayer);
@@ -1251,7 +1254,14 @@ setInterval(pollStatus, 15000);
 
 // Live listings age out; refresh them while that tab is open, and keep the heading of a
 // channel that is being watched honest across a programme boundary.
-setInterval(() => {
+function refreshListingsNow() {
   if (state.media) refreshLiveTitle();
   else if (state.view === 'live') loadNow();
-}, 60000);
+}
+setInterval(refreshListingsNow, 60000);
+
+// Timers stand still while a device sleeps; a page brought back to the screen catches up at once
+// rather than up to a minute later. window.tvResume is for the app, whose WebView does not
+// reliably fire visibilitychange when the stick wakes.
+window.tvResume = refreshListingsNow;
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshListingsNow(); });

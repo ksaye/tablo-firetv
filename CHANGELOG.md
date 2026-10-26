@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.3 — 2026-10-26
+
+- **Pausing live TV names the episode on screen.** The title was fixed when the channel was
+  opened, so a channel left on through several shows paused to the name of the first one. It now
+  shows what is airing at the moment you are watching - the next episode once it starts, or the
+  earlier one if you have rewound back into it.
+- **The Live TV list is up to date when you come back to it.** It was not refreshed while
+  something was playing, so pausing a show overnight and pressing Back showed the previous day's
+  listings. It now refreshes the moment you leave the player and when the Fire TV wakes up.
+
 ## 1.1.2 — 2026-10-17
 
 - **No more crashes during long viewing.** The player kept every copy of the live channel's

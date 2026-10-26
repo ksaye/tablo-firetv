@@ -174,6 +174,9 @@ public class MainActivity : MauiAppCompatActivity
     private List<NowDto>? _lineup;
     private DateTime _lineupFetchedUtc;
     private int _lineupRefreshing;
+    // Every programme seen airing on the channel being watched since it was tuned, so a pause
+    // names what is on screen - the next episode once it starts, the earlier one after a rewind.
+    private readonly List<AiringDto> _nativeAirings = [];
 
     // Multi-view (a tablo-web server's combined stream): its session id, the panes' names, and
     // which pane has the sound. Null id when not in multi-view.
@@ -314,6 +317,10 @@ public class MainActivity : MauiAppCompatActivity
     {
         base.OnResume();
         InjectPageScript();
+        // Back from sleep: the page's minute timer stood still the whole time, so its listings
+        // are as old as the nap. Native playback re-reads its own title on the next pause.
+        if (!_nativePlayerActive)
+            _webView.EvaluateJavascript("window.tvResume && window.tvResume();", null);
     }
 
     protected override void OnPause()
@@ -341,6 +348,7 @@ public class MainActivity : MauiAppCompatActivity
         _nativeErrorRetries = 0;
         _nativePath = path;
         _targetPath = null;
+        _nativeAirings.Clear();
 
         // ExoPlayer's HTTP stack is separate from the WebView's cookies, so it is handed the in-app
         // server's cookie explicitly: a recording's playlist comes from that server. The video
@@ -389,8 +397,9 @@ public class MainActivity : MauiAppCompatActivity
         _overlayHandler.Post(NativeOverlayTick);
 
         // Fetch the channel list while the picture is starting, so the first Up or Down press
-        // already has one to step through.
-        if (live) _ = RefreshLineupAsync();
+        // already has one to step through - and note what is on at tune-in, so a rewind back
+        // across the next programme boundary still knows its name.
+        if (live) _ = UpdateLiveTitleAsync(_tuneGeneration);
     }
 
     /// <summary>
@@ -564,9 +573,59 @@ public class MainActivity : MauiAppCompatActivity
     private void ShowChannelBanner(NowDto now)
     {
         if (_overlayTitle is not { } t) return;
-        var channel = $"{now.Channel.Number} {now.Channel.CallSign}".Trim();
-        t.Text = now.Airing is { } a ? $"{channel}\n{a.Title}" : channel;
+        t.Text = LiveTitleText(now.Channel, now.Airing);
         SetNativeTitleVisible(true);
+    }
+
+    /// <summary>The same two lines the page's player heading uses (showLiveTitle in app.js).</summary>
+    private static string LiveTitleText(ChannelDto channel, AiringDto? airing)
+    {
+        var name = $"{channel.Number} {channel.CallSign}".Trim();
+        if (airing is null) return name;
+        return string.IsNullOrEmpty(airing.Subtitle)
+            ? $"{airing.Title}\n{name}"
+            : $"{airing.Title}\n{name} · {airing.Subtitle}";
+    }
+
+    private static bool TryAiringWindow(AiringDto airing, out DateTimeOffset start, out DateTimeOffset end)
+    {
+        end = default;
+        if (!DateTimeOffset.TryParse(airing.Start, out start)) return false;
+        end = start.AddSeconds(airing.DurationSeconds);
+        return true;
+    }
+
+    /// <summary>
+    /// Points the title at whatever is on screen. It used to be fixed at tune-in, so a channel
+    /// left on for the evening paused to the name of the first show of it. The moment being
+    /// watched is now minus however far a pause or rewind has left playback behind live; the
+    /// line-up is re-read only when what it said was on has ended.
+    /// </summary>
+    private async Task UpdateLiveTitleAsync(int generation)
+    {
+        if (!_nativeLive || _nativePath.Length == 0) return;
+        var path = _nativePath;
+        var now = DateTimeOffset.UtcNow;
+        var entry = _lineup?.Find(n => n.Channel.Path == path);
+        var stale = entry?.Airing is { } known
+            ? !TryAiringWindow(known, out _, out var end) || end <= now
+            : entry is null || DateTime.UtcNow - _lineupFetchedUtc > TimeSpan.FromMinutes(1);
+        if (stale)
+        {
+            await RefreshLineupAsync();
+            if (generation != _tuneGeneration || !_nativePlayerActive || _nativePath != path) return;
+            entry = _lineup?.Find(n => n.Channel.Path == path);
+        }
+        if (entry is null) return;
+
+        if (entry.Airing is { } current && !_nativeAirings.Exists(a => a.Start == current.Start))
+            _nativeAirings.Add(current);
+
+        var behindMs = _player is { } p ? LiveBehindMs(p) : 0;
+        var watched = DateTimeOffset.UtcNow.AddMilliseconds(-(behindMs + LiveOffsetMs));
+        var airing = _nativeAirings.Find(a =>
+            TryAiringWindow(a, out var s, out var e) && s <= watched && watched < e) ?? entry.Airing;
+        if (_overlayTitle is { } t) t.Text = LiveTitleText(entry.Channel, airing);
     }
 
     /// <summary>Tune <paramref name="path"/> into the open player, unless a newer press has
@@ -594,6 +653,8 @@ public class MainActivity : MauiAppCompatActivity
 
         _nativePath = path;
         _targetPath = null;
+        _nativeAirings.Clear();
+        _ = UpdateLiveTitleAsync(generation);
         p.SetMediaItem(BuildMediaItem(play.Url.StartsWith("http") ? play.Url : HomeUrl + play.Url, live: true));
         p.Prepare();
         p.Play();
@@ -879,7 +940,12 @@ public class MainActivity : MauiAppCompatActivity
                 }
                 if (_player is { } p)
                 {
-                    if (p.PlayWhenReady) { p.Pause(); SetNativeTitleVisible(true); }
+                    if (p.PlayWhenReady)
+                    {
+                        p.Pause();
+                        SetNativeTitleVisible(true);
+                        if (_nativeLive) _ = UpdateLiveTitleAsync(_tuneGeneration);
+                    }
                     else { p.Play(); SetNativeTitleVisible(false); }
                 }
                 return true;

@@ -12,8 +12,8 @@
 
     <ApplicationTitle>Tablo for Fire TV</ApplicationTitle>
     <ApplicationId>io.github.ksaye.tablofiretv</ApplicationId>
-    <ApplicationDisplayVersion>1.1.2</ApplicationDisplayVersion>
-    <ApplicationVersion>4</ApplicationVersion>
+    <ApplicationDisplayVersion>1.1.3</ApplicationDisplayVersion>
+    <ApplicationVersion>5</ApplicationVersion>
 
     <SupportedOSPlatformVersion>24.0</SupportedOSPlatformVersion>
 
